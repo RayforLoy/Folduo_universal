@@ -20,7 +20,7 @@ public final class PanelProbe {
   android.content.ComponentName component=(android.content.ComponentName)focused.getClass().getField("topActivity").get(focused);
   if(component==null||!"com.sec.android.app.popupcalculator".equals(component.getPackageName())||source!=0)throw new IllegalStateException("Calculator on display 0 required");
   System.out.println("INITIAL task="+id+" display="+source);
-  DualDisplayControl control=new DualDisplayControl();boolean moved=false;
+  DualDisplayControl control=new DualDisplayControl(system);boolean moved=false;
   try{
    control.hold(false,0);System.out.println("REQUEST_OUTER "+control.describe());Thread.sleep(1200);
    for(Display d:dm.getDisplays()){Point p=new Point();d.getRealSize(p);System.out.println("PANEL "+d.getDisplayId()+" "+p.x+"x"+p.y+" state="+d.getState());}

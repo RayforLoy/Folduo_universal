@@ -1,5 +1,6 @@
 package jp.bunkaich.sukashimotion;
 
+import android.content.Context;
 import android.os.*;
 import java.lang.reflect.*;
 import java.util.*;
@@ -9,15 +10,20 @@ import java.util.concurrent.Executor;
 final class DualDisplayControl implements AutoCloseable {
     final Object manager,service;final Class<?> requestType,callbackType;final Method request,cancel,read;
     final int innerState,outerState;private Object owned;
-    DualDisplayControl()throws Exception{
-        if(!"SM-F966Z".equals(Build.MODEL))throw new UnsupportedOperationException("@folduo/err_wrong_model");
+    DualDisplayControl(Context context)throws Exception{
         Class<?> type=Class.forName("android.hardware.devicestate.DeviceStateManager");
-        manager=type.getConstructor().newInstance();int inner=-1,outer=-1;
+        Object serviceManager=context==null?null:context.getSystemService((Class)type);
+        manager=serviceManager!=null?serviceManager:type.getConstructor().newInstance();int inner=-1,outer=-1;
         for(Object state:(List<?>)type.getMethod("getSupportedDeviceStates").invoke(manager)){
             Class<?> s=state.getClass();String name=(String)s.getMethod("getName").invoke(state);int id=(int)s.getMethod("getIdentifier").invoke(state);
             if(!(boolean)s.getMethod("hasProperty",int.class).invoke(state,10))continue;
-            if("CONCURRENT_INNER_DEFAULT".equals(name)&&(boolean)s.getMethod("hasProperty",int.class).invoke(state,12))inner=id;
-            if("CONCURRENT_OUTER_DEFAULT".equals(name)&&(boolean)s.getMethod("hasProperty",int.class).invoke(state,11))outer=id;
+            // Properties describe the behavior; names are Samsung details. This
+            // also enables other book-style foldables exposing the same public
+            // concurrent-display contract.
+            if((boolean)s.getMethod("hasProperty",int.class).invoke(state,12))
+                if(inner<0||"CONCURRENT_INNER_DEFAULT".equals(name))inner=id;
+            if((boolean)s.getMethod("hasProperty",int.class).invoke(state,11))
+                if(outer<0||"CONCURRENT_OUTER_DEFAULT".equals(name))outer=id;
         }
         if(inner<0||outer<0)throw new UnsupportedOperationException("@folduo/err_states_unavailable");
         innerState=inner;outerState=outer;

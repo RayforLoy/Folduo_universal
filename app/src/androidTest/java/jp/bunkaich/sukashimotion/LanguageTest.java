@@ -69,8 +69,10 @@ public class LanguageTest {
         screen.onActivity(a->assertEquals("en",a.getResources().getConfiguration().getLocales().get(0).getLanguage()));
         select(2,"ja");
         screen.onActivity(a->assertEquals("見え方を試す",a.getString(R.string.preview)));
+        select(3,"zh");
+        screen.onActivity(a->{assertEquals("预览动画",a.getString(R.string.preview));assertEquals("zh-CN",a.getSystemService(LocaleManager.class).getApplicationLocales().toLanguageTags());});
         String system=context.getSystemService(LocaleManager.class).getSystemLocales().get(0).getLanguage();
-        select(0,system.equals("ja")?"ja":"en");
+        select(0,system.equals("ja")?"ja":system.equals("zh")?"zh":"en");
         assertTrue(context.getSystemService(LocaleManager.class).getApplicationLocales().isEmpty());
     }
     @Test public void languageChangeUpdatesNotificationWithoutRestartingAngles()throws Exception{
@@ -80,19 +82,21 @@ public class LanguageTest {
         waitFor(()->bridge.sink!=null);bridge.sink.angle(120,SystemClock.elapsedRealtime(),3);
         waitFor(()->MotionService.status.is(R.string.close_to_prepare));
         int starts=bridge.starts;IAngleSink sink=bridge.sink;
-        assertNotification("Resume","Fold animation");
-        select(2,"ja");assertNotification("再開","開閉の演出");
+        assertNotification("en","Resume","Fold animation");
+        select(2,"ja");assertNotification("ja","再開","開閉の演出");
         assertTrue(MotionService.running);assertSame("Language must not replace the sensor listener",sink,bridge.sink);assertEquals(starts,bridge.starts);
-        select(1,"en");assertNotification("Resume","Fold animation");
+        select(3,"zh");assertNotification("zh-CN","恢复","折叠动画");
+        assertSame("Language must not replace the sensor listener",sink,bridge.sink);assertEquals(starts,bridge.starts);
+        select(1,"en");assertNotification("en","Resume","Fold animation");
         assertEquals(0,bridge.captures);assertEquals(0,bridge.moves);assertEquals(0,bridge.holds);
     }
-    private void assertNotification(String action,String channel)throws Exception{
+    private void assertNotification(String language,String action,String channel)throws Exception{
         NotificationManager manager=context.getSystemService(NotificationManager.class);
         waitFor(()->{
             for(var notification:manager.getActiveNotifications())if(notification.getId()==7){
                 Notification n=notification.getNotification();
                 return n.actions!=null&&action.contentEquals(n.actions[0].title)&&channel.contentEquals(manager.getNotificationChannel("motion").getName())
-                    &&n.extras.getCharSequence(Notification.EXTRA_TEXT).toString().equals(MotionService.status.resolve(localized(action.equals("Resume")?"en":"ja")));
+                    &&n.extras.getCharSequence(Notification.EXTRA_TEXT).toString().equals(MotionService.status.resolve(localized(language)));
             }
             return false;
         });
@@ -113,15 +117,24 @@ public class LanguageTest {
     @Test public void englishControlsAndSensorReportAreLocalized()throws Exception{
         select(1,"en");
         screen.onActivity(a->{
-            InnerNavigation nav=new InnerNavigation(a.createWindowContext(WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,null),0,1968,2184,(action,task)->{});
+            InnerNavigation nav=new InnerNavigation(WindowContexts.overlay(a,a.getDisplay()),0,1968,2184,(action,task)->{});
             try{
-                boolean found=false;
-                for(View root:WindowInspector.getGlobalWindowViews())found|=hasDescription(root,"Recent apps");
-                assertTrue("Overlay controls use the app language",found);
+                View root=navigationRoot(nav);
+                assertTrue("Overlay controls use the app language; locale="+root.getResources().getConfiguration().getLocales()+" descriptions="+descriptions(root),hasDescription(root,"Recent apps"));
             }finally{nav.close();}
             Bundle b=new Bundle();b.putInt("uid",2000);b.putString("display","inner=0 / cover=1");
             String report=MainActivity.formatReport(a,b);assertTrue(report.contains("Helper UID: 2000"));assertTrue(report.contains("Dual gyroscopes:"));
         });
+    }
+    private View navigationRoot(InnerNavigation nav){
+        try{var field=InnerNavigation.class.getDeclaredField("root");field.setAccessible(true);return (View)field.get(nav);}
+        catch(ReflectiveOperationException error){throw new AssertionError(error);}
+    }
+    private String descriptions(View view){
+        StringBuilder values=new StringBuilder();
+        if(view.getContentDescription()!=null)values.append('[').append(view.getContentDescription()).append(']');
+        if(view instanceof ViewGroup group)for(int i=0;i<group.getChildCount();i++)values.append(descriptions(group.getChildAt(i)));
+        return values.toString();
     }
     private boolean hasDescription(View view,String label){
         if(label.contentEquals(view.getContentDescription()==null?"":view.getContentDescription()))return true;

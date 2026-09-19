@@ -10,7 +10,7 @@ final class FoldShader {
         uniform float2 size; uniform float2 cacheScale; uniform float2 rearCacheScale;
         uniform float2 pose; uniform float innerDepth;
         uniform float amount; uniform float inner;
-        uniform float radiusDp; uniform float rearBlend; uniform float pixelsPerDp;
+        uniform float radiusDp; uniform float blurStart; uniform float rearBlend; uniform float pixelsPerDp;
         half blurWeight(float radius,float lower,float upper) {
             // Gaussian variance, not radius, is additive when mixing cached images.
             // This keeps the effective radius proportional to the hinge angle.
@@ -55,16 +55,22 @@ final class FoldShader {
                 q=float2(p.x,
                     size.y*.5+(p.y-size.y*.5)/denominator);
             }
-            float radius=radiusDp*amount*(.45+.55*sqrt(distance));
+            // The cover's left side is the stable, readable part. It remains sharp
+            // until blurStart, then frost grows continuously towards the right edge.
+            float coverDistance=clamp((distance-blurStart)/max(.01,1.0-blurStart),0.0,1.0);
+            float radius=radiusDp*amount*coverDistance*coverDistance;
             // Let detail remain readable near the hinge, then build frost continuously
             // towards the far edge. Squared distance has no seam-band threshold and
-            // joins the sharp right pane with zero slope. Cap the far edge at 28dp.
-            // Keep the accepted radius in source-image space, independent of taper.
+            // joins the sharp right pane with zero slope. Keep the selected radius
+            // in source-image space, independent of taper.
             if(inner>.5)radius=radiusDp*amount*distance*distance;
             // Both images use the same angle-driven radius. Linking a prepared rear
             // image must not impose a sudden blur floor or change optical strength.
             half4 color=frost(q,radius);
-            if(inner<.5 && rearBlend>0.0)color=mix(color,rearFrost(q,radius),half(rearBlend));
+            // A translucent cross-fade makes both app layouts readable in the new
+            // clear region. Select one complete frame at the hand-off midpoint so
+            // the cover never shows a double image.
+            if(inner<.5 && rearBlend>=.5)color=rearFrost(q,radius);
             // Blur the displaced top/bottom silhouette in IMAGE space, including its
             // black surround. Alpha stays opaque: this is optical softness, not a hole
             // through which the real, unblurred app can show. No hinge corner is added.

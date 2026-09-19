@@ -6,14 +6,14 @@
 
 好奇心で作ったもので、今後積極的に開発・保守を続ける予定はありません。興味が湧けば手を入れるかもしれませんが、基本的にはこのまま置いておくつもりです。
 
-Galaxy Z Fold7の開閉角度に合わせて、前面と内側の画面をすりガラス越しにつなぐ実験アプリです。開閉中はアプリの像をその場に残すように視差とぼかしを加え、もう一方の画面へ引き継ぎます。ホームアプリを変更せず、通常のアプリで使えます。
+Galaxy Z Fold7、Fold8、および互換性のある横開き折りたたみ端末で、前面と内側の画面をすりガラス越しにつなぐ実験アプリです。開閉中はアプリの像をその場に残すように視差とぼかしを加え、もう一方の画面へ引き継ぎます。
 
-[0.1.21をダウンロード](https://github.com/bunkaich/Folduo/releases/tag/v0.1.21)
+[0.2.0をダウンロード](https://github.com/RayforLoy/Folduo_universal/releases/tag/v0.2.0)
 
 ## 必要な環境
 
-- **Galaxy Z Fold7 SM-F966Z専用。** ほかの型番では画面制御を開始しません。
-- 確認したOS：Android 16 / One UI 8.5、ビルド `F966ZSCS1BZH4`。
+- **互換性のある横開き折りたたみ端末。** Galaxy Z Fold7各地域版（`SM-F966*`、`SC-56F`、`SCG34`）とFold8 `SM-F9710`に対応します。他機種は内外画面を同時表示できる状態をAndroidが公開している場合に能力検出で有効になります。
+- 確認したOS：Android 16 / One UI 8.5、ビルド `F966ZSCS1BZH4`。ほかの地域版は有効化済みですが、実機確認は未完了です。
 - [Shizuku](https://shizuku.rikka.app/guide/setup/)を別途導入・起動。確認版は `13.6.0.r1086.2650830c`。
 - 以下の手順で設定する、対応したSamsung純正の動く壁紙。
 
@@ -21,7 +21,7 @@ root化は不要です。初期設定後は、ワイヤレスデバッグでShiz
 
 ## 導入
 
-アプリ上部の **言語 / Language** で、**日本語**・**English**・**端末の設定に合わせる**を選べます。選択は保存され、Androidのアプリ別言語設定とも連動します。初期状態では、日本語の端末は日本語、それ以外は英語で表示します。
+アプリ上部の **言語 / Language** で、**日本語**・**English**・**简体中文**・**端末の設定に合わせる**を選べます。選択は保存され、Androidのアプリ別言語設定とも連動します。「端末の設定に合わせる」では端末の言語に従います。
 
 ### 1. Shizukuを起動する
 
@@ -29,13 +29,13 @@ root化は不要です。初期設定後は、ワイヤレスデバッグでShiz
 
 ### 2. 純正壁紙を設定する
 
-細かな角度は、Shizukuの補助処理を通してSamsung純正の動く壁紙から取得します。確認機の標準ヒンジセンサーでは主に0・90・180度しか得られませんでした。2系統のジャイロで角度を推定しているわけではありません。
+標準ヒンジセンサーが細かな値を返す端末では、そのセンサーを直接使います。確認したSamsung端末では主に0・90・180度だけだったため、純正の動く壁紙をShizuku経由の予備経路として使います。2系統のジャイロで角度を推定しているわけではありません。
 
 1. Folduoと、ほかの開閉演出・画面制御補助を停止します。
 2. 内側ホームを、端末内で `video_002.mp4` と識別されるSamsung純正の開閉連動動画壁紙に設定します。前面ホームは対応する純正静止壁紙 `sub_wallpaper_002` が前提です。設定画面の名称はOS版により異なります。
 3. 前面でも細かな角度を取得するには、以下の補助で前面ホームを同じ純正動画壁紙へ変更します。**One UIの前面ホームの壁紙も変わります。** 後で戻したい壁紙は元の画像や設定を保存してください。
 
-リリースの `folduo-wallpaper-setup-0.1.21.zip` を展開し、PCにPython 3とAndroid SDK platform-tools（ADB）を用意します。USBデバッグを許可した端末を1台接続し、展開先で実行します。
+リリースの `folduo-wallpaper-setup-0.2.0.zip` を展開し、PCにPython 3とAndroid SDK platform-tools（ADB）を用意します。USBデバッグを許可した端末を1台接続し、展開先で実行します。
 
 ```sh
 python3 cover-wallpaper.py status
@@ -56,7 +56,7 @@ python3 tools/cover-wallpaper.py apply
 
 ### 3. アプリを入れて開始する
 
-1. リリースの `Folduo-0.1.21.apk` をインストールします。ADBなら `adb install -r Folduo-0.1.21.apk` でも導入できます。
+1. リリースの `Folduo-0.2.0.apk` をインストールします。ADBなら `adb install -r Folduo-0.2.0.apk` でも導入できます。
 2. 「Folduo」を開き、「Shizukuを接続」で利用を許可します。
 3. 「重ねて表示を許可」を押して許可し、通知も許可します。
 4. 画面の一時利用についての説明を読み、「画面の一時利用に同意して常時有効にする」を押します。
@@ -74,7 +74,7 @@ python3 tools/cover-wallpaper.py apply
 
 ## Folduoのホーム画面
 
-同梱のランチャーを使うには、Folduoの設定で **「Folduoをホームアプリにする」** を押し、Folduoを選択してください。アイコンをタップすると起動、長押しすると入れ替えができます。「すべてのアプリ」から一覧を表示でき、ホーム右下の「Folduo」から設定へ戻れます。英語・日本語に対応しています。
+同梱のランチャーを使うには、Folduoの設定で **「Folduoをホームアプリにする」** を押し、Folduoを選択してください。アイコンをタップすると起動、長押しすると入れ替えができます。「すべてのアプリ」から一覧を表示でき、ホーム右下の「Folduo」から設定へ戻れます。英語・日本語・簡体字中国語に対応しています。
 
 確認したFold7では、Samsungが内側からの新規アプリ起動を前面へ振り替えていました。Folduoのホームは選んだアプリだけを内側へ移し、ホームへの復帰も揃えます。他のランチャーの同症状を修正するものではありません。
 
@@ -102,9 +102,9 @@ Git、JDK 17、Android SDKを用意します。`JAVA_HOME` をJDK、`ANDROID_HOM
 sdkmanager "platforms;android-37.0" "build-tools;36.0.0" "platform-tools"
 sdkmanager --licenses
 
-git clone https://github.com/bunkaich/Folduo.git
-cd Folduo
-git checkout v0.1.21
+git clone https://github.com/RayforLoy/Folduo_universal.git
+cd Folduo_universal
+git checkout v0.2.0
 ./gradlew :app:assembleRelease :app:testDebugUnitTest :app:lintRelease
 ```
 
@@ -114,7 +114,7 @@ Gradle 9.5.1はWrapperから取得してチェックサムを検証します。A
 
 配布APKは従来の実験版と同じデバッグ署名を使っています。署名鍵は公開しません。自分でビルドすると署名が異なるため、配布版へ直接上書きできません。署名を切り替える際は停止・アンインストール後に導入し、設定と権限をやり直してください。壁紙はアンインストールしても戻りません。
 
-配布物の `SHA256SUMS` と、macOSなら `shasum -a 256 Folduo-0.1.21.apk`、Linuxなら `sha256sum Folduo-0.1.21.apk` の結果を照合できます。
+配布物の `SHA256SUMS` と、macOSなら `shasum -a 256 Folduo-0.2.0.apk`、Linuxなら `sha256sum Folduo-0.2.0.apk` の結果を照合できます。
 
 ## 画面の取り扱い
 

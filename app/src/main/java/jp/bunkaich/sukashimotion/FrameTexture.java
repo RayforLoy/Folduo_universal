@@ -32,8 +32,23 @@ final class FrameTexture {
     }
     private static Bitmap map(Bitmap input,boolean sourceInner,int w,int h){
         Bitmap result=Bitmap.createBitmap(w,h,Bitmap.Config.ARGB_8888);Canvas canvas=new Canvas(result);Paint paint=new Paint(Paint.FILTER_BITMAP_FLAG);
-        if(sourceInner)canvas.drawBitmap(input,new Rect(input.getWidth()/2,0,input.getWidth(),input.getHeight()),new Rect(0,0,w,h),paint);
-        else{canvas.drawBitmap(input,null,new Rect(0,0,w/2,h),paint);canvas.drawBitmap(input,null,new Rect(w/2,0,w,h),paint);}
+        if(sourceInner)drawCenterCrop(canvas,input,new Rect(input.getWidth()/2,0,input.getWidth(),input.getHeight()),new Rect(0,0,w,h),paint);
+        else{
+            drawCenterCrop(canvas,input,new Rect(0,0,input.getWidth(),input.getHeight()),new Rect(0,0,w/2,h),paint);
+            drawCenterCrop(canvas,input,new Rect(0,0,input.getWidth(),input.getHeight()),new Rect(w/2,0,w,h),paint);
+        }
         result.prepareToDraw();return result;
+    }
+    private static void drawCenterCrop(Canvas canvas,Bitmap bitmap,Rect source,Rect destination,Paint paint){
+        float sourceRatio=source.width()/(float)source.height(),destinationRatio=destination.width()/(float)destination.height();
+        Rect crop=new Rect(source);
+        if(sourceRatio>destinationRatio){
+            int width=Math.max(1,Math.round(source.height()*destinationRatio));int left=source.centerX()-width/2;
+            crop.left=left;crop.right=left+width;
+        }else if(sourceRatio<destinationRatio){
+            int height=Math.max(1,Math.round(source.width()/destinationRatio));int top=source.centerY()-height/2;
+            crop.top=top;crop.bottom=top+height;
+        }
+        canvas.drawBitmap(bitmap,crop,destination,paint);
     }
 }

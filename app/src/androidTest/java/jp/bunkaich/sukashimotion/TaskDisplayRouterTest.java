@@ -43,9 +43,9 @@ public class TaskDisplayRouterTest {
   for(int i=0;i<8;i++){r.move(0,1,false);r.move(1,0,false);}
   assertEquals(0,m.all.get(0).displayId);assertEquals(1,m.all.get(1).displayId);assertTrue(m.moves.isEmpty());
  }
- @Test public void restoreNeverMovesDuplicateHomeOrUnrelatedApps()throws Exception{
-  Manager m=new Manager();m.all.add(new Info(7,0,2));m.all.add(new Info(8,1,2));m.all.add(new Info(15,1,1));TaskDisplayRouter r=new TaskDisplayRouter(m,Manager.class);r.restore();
-  assertEquals(7,m.focused);assertTrue(m.moves.isEmpty());assertEquals(1,m.all.get(2).displayId);
+ @Test public void closingRestoreNeverFocusesHomeOverTheForegroundApp()throws Exception{
+  Manager m=new Manager();m.all.add(new Info(12,0,1));m.all.add(new Info(7,0,2));m.all.add(new Info(8,1,2));TaskDisplayRouter r=new TaskDisplayRouter(m,Manager.class);r.restore();
+  assertEquals("Idle secondary HOME must not cover the app already on display 0",-1,m.focused);assertEquals(-1,m.resumed);assertTrue(m.moves.isEmpty());assertEquals(0,m.all.get(0).displayId);
  }
  @Test public void returnCurrentAppWithoutResurrectingPreviousApp()throws Exception{
   Manager m=new Manager();m.all.add(new Info(22,1,1));m.all.add(new Info(7,0,2));m.all.add(new Info(8,1,2));TaskDisplayRouter r=new TaskDisplayRouter(m,Manager.class);r.restore();assertEquals(22,m.resumed);assertEquals(0,m.all.get(0).displayId);assertTrue(m.moves.isEmpty());
@@ -81,11 +81,11 @@ public class TaskDisplayRouterTest {
   ComponentName selected=new ComponentName("folduo","folduo.Home");Info custom=new Info(10,1,2);custom.baseIntent=TaskDisplayRouter.launchIntent(selected);m.all.add(custom);
   new TaskDisplayRouter(m,Manager.class).showHome(1,selected);assertEquals(10,m.focused);assertTrue(m.moves.isEmpty());
  }
- @Test public void foldingTransfersChosenHomeChildWithoutDuplicatingRoots()throws Exception{
+ @Test public void foldingFocusesDestinationHomeWithoutReparentingLauncherChild()throws Exception{
   Manager m=new Manager();Info launcher=new Info(10,0,2);launcher.parentTaskId=7;
   m.all.add(launcher);m.all.add(new Info(7,0,2));m.all.add(new Info(8,1,2));TaskDisplayRouter router=new TaskDisplayRouter(m,Manager.class);
-  router.move(0,1,false);assertEquals(1,launcher.displayId);assertEquals(8,launcher.parentTaskId);assertEquals(10,m.focused);
-  router.move(1,0,false);assertEquals(0,launcher.displayId);assertEquals(7,launcher.parentTaskId);
-  assertEquals(List.of("child:10:8","child:10:7"),m.moves);
+  router.move(0,1,false);assertEquals(0,launcher.displayId);assertEquals(7,launcher.parentTaskId);assertEquals(8,m.focused);
+  router.move(1,0,false);assertEquals(0,launcher.displayId);assertEquals(7,launcher.parentTaskId);assertEquals(7,m.focused);
+  assertTrue(m.moves.isEmpty());
  }
 }

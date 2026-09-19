@@ -4,11 +4,11 @@ android {
  compileSdk = 37
  buildToolsVersion = "36.0.0"
  defaultConfig {
-  applicationId = "jp.bunkaich.sukashimotion"
+  applicationId = "com.rayfor.folduo"
   minSdk = 33
   targetSdk = 36
-  versionCode = 41
-  versionName = "0.1.21"
+  versionCode = 42
+  versionName = "0.2.0"
   testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
  }
  buildFeatures { buildConfig = true; aidl = true }

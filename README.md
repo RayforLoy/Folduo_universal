@@ -6,14 +6,14 @@ English | [日本語](README.ja.md)
 
 I built this out of curiosity. I don't plan to actively develop or maintain it. I may make changes if something sparks my interest, but otherwise expect this repository to remain mostly untouched.
 
-An experimental Galaxy Z Fold7 app that uses hinge angle to create a frosted-glass transition between the cover and inner screens. It holds an app's image in place with parallax and blur while the phone folds, then hands over to the app on the other display. It works with regular apps without replacing your launcher.
+An experimental app for Galaxy Z Fold7, Fold8, and compatible book-style foldables. It uses hinge angle to create a frosted-glass transition between the cover and inner screens, while working with regular apps without replacing your launcher.
 
-[Download v0.1.21](https://github.com/bunkaich/Folduo/releases/tag/v0.1.21)
+[Download v0.2.0](https://github.com/RayforLoy/Folduo_universal/releases/tag/v0.2.0)
 
 ## Requirements
 
-- **Galaxy Z Fold7 SM-F966Z only.** Display control is disabled on other models.
-- Tested on Android 16 / One UI 8.5, build `F966ZSCS1BZH4`.
+- **A compatible book-style foldable.** Galaxy Z Fold7 families (`SM-F966*`, `SC-56F`, `SCG34`) and Galaxy Z Fold8 `SM-F9710` are recognized. Other phones are enabled when Android advertises concurrent inner-primary and cover-primary display states; devices without those capabilities receive a clear error instead of a model-based rejection.
+- Tested on Android 16 / One UI 8.5, build `F966ZSCS1BZH4`. Other regional variants are enabled but still require device testing.
 - [Shizuku](https://shizuku.rikka.app/guide/setup/), installed and running. Tested with `13.6.0.r1086.2650830c`.
 - The supported Samsung stock interactive wallpaper, configured as described below.
 
@@ -21,7 +21,7 @@ No root required. Once set up, it can run without USB if Shizuku is started thro
 
 ## Setup
 
-Folduo supports English and Japanese. At the top of the app, tap **Language / 言語** and choose **English**, **日本語**, or **System default**. The choice is saved and also appears in Android’s app language settings. Japanese devices use Japanese by default; other devices use English.
+Folduo supports English, Japanese, and Simplified Chinese. At the top of the app, tap **Language / 言語** and choose **English**, **日本語**, **简体中文**, or **System default**. The choice is saved and also appears in Android’s app language settings. The system-default option follows the device language.
 
 ### 1. Start Shizuku
 
@@ -29,13 +29,13 @@ Follow the [official setup guide](https://shizuku.rikka.app/guide/setup/) to ins
 
 ### 2. Configure the stock wallpaper
 
-Fine-grained angles come from Samsung's interactive wallpaper through a Shizuku helper. On the tested device, the standard hinge sensor mainly reported 0°, 90° and 180°. This app does not estimate the angle using two gyroscopes.
+Folduo directly uses Android's standard hinge-angle sensor when it provides fine-grained values. On the tested Samsung devices that sensor mainly reported 0°, 90° and 180°, so Samsung's interactive wallpaper is used as the fine-angle fallback through the Shizuku helper. The app does not estimate the angle using two gyroscopes.
 
 1. Stop Folduo and any other fold-animation or display-control helpers.
 2. Set the inner home screen to the Samsung stock interactive wallpaper identified internally as `video_002.mp4`. The cover home screen must use its matching stock image, `sub_wallpaper_002`. Wallpaper names in Settings vary by OS version.
 3. To get fine-grained angles on the cover screen too, use the helper below to apply the same stock interactive wallpaper there. **This changes the cover home wallpaper in One UI as well.** Keep your original wallpaper if you want to restore it later.
 
-Download and extract `folduo-wallpaper-setup-0.1.21.zip` from the release. Install Python 3 and Android SDK platform-tools (ADB). Connect one phone with USB debugging authorized, then run these commands in the extracted folder:
+Download and extract `folduo-wallpaper-setup-0.2.0.zip` from the release. Install Python 3 and Android SDK platform-tools (ADB). Connect one phone with USB debugging authorized, then run these commands in the extracted folder:
 
 ```sh
 python3 cover-wallpaper.py status
@@ -56,7 +56,7 @@ python3 tools/cover-wallpaper.py apply
 
 ### 3. Install and start the app
 
-1. Install `Folduo-0.1.21.apk` from the release. With ADB: `adb install -r Folduo-0.1.21.apk`.
+1. Install `Folduo-0.2.0.apk` from the release. With ADB: `adb install -r Folduo-0.2.0.apk`.
 2. Open **Folduo**, tap **Connect Shizuku**, and grant access.
 3. Tap **Allow display over other apps**. Allow notifications too.
 4. Read the screen-capture explanation, then tap **Allow temporary screen access and enable**.
@@ -74,9 +74,9 @@ The cover screen uses Samsung's normal navigation. The inner screen has a small 
 
 ## Folduo home
 
-To use the included launcher, tap **Use Folduo as the home app** in Folduo settings and select Folduo. Tap an icon to open an app, long-press to replace it, or use **All apps** to browse installed apps. Tap the **Folduo** button on the home screen to return to settings. English and Japanese are supported.
+To use the included launcher, tap **Use Folduo as the home app** in Folduo settings and select Folduo. Tap an icon to open an app, long-press to replace it, or use **All apps** to browse installed apps. Tap the **Folduo** button on the home screen to return to settings. English, Japanese, and Simplified Chinese are supported.
 
-On the tested Fold7, Samsung redirects new app launches from the inner display to the cover display. Folduo home moves only the selected app to the inner display and restores the selected home when returning. This does not fix other launchers.
+At each completed fold endpoint, Folduo makes the visible physical panel logical display 0. Normal app launches and primary-display utilities such as One Hand Operation+ therefore follow the inner screen while unfolded and the cover screen while folded. Folduo home remains available as an optional launcher.
 
 Three Calculator/home round trips, moving the home between both displays, long-press selection and opening settings passed on the phone with both displays held on by the helper. The final check with physical folding is still pending. If an app does not open after unfolding, close the phone and launch it from the cover home screen.
 
@@ -102,9 +102,9 @@ Use Git, JDK 17 and the Android SDK. Set `JAVA_HOME` to your JDK and `ANDROID_HO
 sdkmanager "platforms;android-37.0" "build-tools;36.0.0" "platform-tools"
 sdkmanager --licenses
 
-git clone https://github.com/bunkaich/Folduo.git
-cd Folduo
-git checkout v0.1.21
+git clone https://github.com/RayforLoy/Folduo_universal.git
+cd Folduo_universal
+git checkout v0.2.0
 ./gradlew :app:assembleRelease :app:testDebugUnitTest :app:lintRelease
 ```
 
@@ -114,7 +114,7 @@ The wrapper pins Gradle 9.5.1 and verifies its checksum. AGP is 9.2.1; compile S
 
 The release APK uses the existing experimental debug signing certificate. Signing keys are not published. Your own build uses your local certificate and cannot directly replace the release APK. Stop and uninstall the existing app before switching signatures; settings and permissions will need to be configured again. Uninstalling does not restore the wallpaper.
 
-Release downloads include `SHA256SUMS`. Compare the APK with `shasum -a 256 Folduo-0.1.21.apk` on macOS or `sha256sum Folduo-0.1.21.apk` on Linux.
+Release downloads include `SHA256SUMS`. Compare the APK with `shasum -a 256 Folduo-0.2.0.apk` on macOS or `sha256sum Folduo-0.2.0.apk` on Linux.
 
 ## Screen access
 

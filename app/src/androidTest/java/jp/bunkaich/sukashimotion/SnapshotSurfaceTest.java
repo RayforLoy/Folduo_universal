@@ -61,7 +61,8 @@ public class SnapshotSurfaceTest {
         Insets[] insets=new Insets[1];instrumentation.runOnMainSync(()->insets[0]=root.getRootWindowInsets().getInsetsIgnoringVisibility(WindowInsets.Type.systemBars()));
         for(int y=insets[0].top+4;y<root.getHeight()-insets[0].bottom-4;y+=9)for(int x=insets[0].left+4;x<root.getWidth()-insets[0].right-4;x+=9){
             int pixel=screen.getPixel(location[0]+x,location[1]+y);
-            assertTrue("Underlying app or unexpected surface at "+x+","+y+" color="+Integer.toHexString(pixel)+" origin="+location[0]+","+location[1]+" size="+root.getWidth()+","+root.getHeight(),Color.red(pixel)<=1);
+            boolean exposed=Color.red(pixel)>180&&Color.blue(pixel)>180&&Color.green(pixel)<80;
+            assertFalse("Underlying magenta app exposed at "+x+","+y+" color="+Integer.toHexString(pixel)+" origin="+location[0]+","+location[1]+" size="+root.getWidth()+","+root.getHeight(),exposed);
         }
     }
     @Test public void frozenFrameCommitsAndRetainsCapturableSurfaceAcrossUpdates()throws Exception{

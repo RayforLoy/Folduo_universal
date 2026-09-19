@@ -3,7 +3,6 @@ package jp.bunkaich.sukashimotion;
 import android.Manifest;
 import android.app.*;
 import android.content.*;
-import android.graphics.Color;
 import android.net.Uri;
 import android.os.*;
 import android.provider.Settings;
@@ -13,57 +12,67 @@ import java.util.ArrayList;
 import rikka.shizuku.Shizuku;
 
 public final class MainActivity extends Activity {
-    private final Handler handler=new Handler();private TextView state,diagnostic;private boolean probing;
+    private final Handler handler=new Handler();private TextView state,diagnostic,liveAngles;private boolean probing,liveProbePending;
     private final Shizuku.OnRequestPermissionResultListener permission=(code,result)->{if(result==0)BridgeConnection.connect(this);};
     private final IAngleSink diagnosticSink=new IAngleSink.Stub(){public void angle(float a,long t,int kind){}};
     @Override public void onCreate(Bundle saved){
         super.onCreate(saved);BridgeConnection.init(this);Shizuku.addRequestPermissionResultListener(permission);
-        getWindow().setNavigationBarColor(Color.rgb(16,23,20));
+        getWindow().setNavigationBarColor(getColor(R.color.theme_background));
         ScrollView scroll=new ScrollView(this);LinearLayout page=new LinearLayout(this);page.setOrientation(LinearLayout.VERTICAL);page.setPadding(dp(24),dp(28),dp(24),dp(40));scroll.addView(page);
         scroll.setOnApplyWindowInsetsListener((v,insets)->{android.graphics.Insets i=insets.getInsets(WindowInsets.Type.systemBars()|WindowInsets.Type.displayCutout());v.setPadding(i.left,i.top,i.right,i.bottom);return insets;});
-        label(page,getString(R.string.app_name),30,Color.WHITE);
+        label(page,getString(R.string.app_name),30,getColor(R.color.theme_text_primary));
         Button language=new Button(this);language.setId(R.id.language_button);language.setAllCaps(false);language.setText(getString(R.string.language_current,languageName()));language.setOnClickListener(v->chooseLanguage());page.addView(language,new LinearLayout.LayoutParams(-1,-2));
-        label(page,getString(R.string.tagline),17,0xffb3eed4);
-        label(page,getString(R.string.intro),15,0xffc5d3cd);
-        state=label(page,"",15,0xffb3eed4);
+        label(page,getString(R.string.tagline),17,getColor(R.color.theme_accent));
+        label(page,getString(R.string.intro),15,getColor(R.color.theme_text_secondary));
+        state=label(page,"",15,getColor(R.color.theme_accent));
+        label(page,getString(R.string.live_angles_title),21,getColor(R.color.theme_text_primary));
+        label(page,getString(R.string.live_angles_body),14,getColor(R.color.theme_text_secondary));
+        liveAngles=label(page,getString(R.string.live_angles_offline,BridgeConnection.status.resolve(this)),14,getColor(R.color.theme_accent));
+        label(page,getString(R.string.effect_settings_title),21,getColor(R.color.theme_text_primary));
+        label(page,getString(R.string.effect_settings_body),14,getColor(R.color.theme_text_secondary));
+        TextView radiusValue=label(page,getString(R.string.blur_radius_value,MotionSettings.blurRadius(this)),15,getColor(R.color.theme_text_primary));
+        SeekBar radius=new SeekBar(this);radius.setId(R.id.blur_radius);radius.setMax(60);radius.setProgress(MotionSettings.blurRadius(this));radius.setContentDescription(getString(R.string.blur_radius_description));page.addView(radius,new LinearLayout.LayoutParams(-1,-2));
+        radius.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener(){public void onStartTrackingTouch(SeekBar s){}public void onStopTrackingTouch(SeekBar s){}public void onProgressChanged(SeekBar s,int value,boolean fromUser){radiusValue.setText(getString(R.string.blur_radius_value,value));if(fromUser)MotionSettings.blurRadius(MainActivity.this,value);}});
+        TextView startValue=label(page,getString(R.string.blur_start_value,MotionSettings.blurStart(this)),15,getColor(R.color.theme_text_primary));
+        SeekBar start=new SeekBar(this);start.setId(R.id.blur_start);start.setMax(90);start.setProgress(MotionSettings.blurStart(this));start.setContentDescription(getString(R.string.blur_start_description));page.addView(start,new LinearLayout.LayoutParams(-1,-2));
+        start.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener(){public void onStartTrackingTouch(SeekBar s){}public void onStopTrackingTouch(SeekBar s){}public void onProgressChanged(SeekBar s,int value,boolean fromUser){startValue.setText(getString(R.string.blur_start_value,value));if(fromUser)MotionSettings.blurStart(MainActivity.this,value);}});
         button(page,getString(R.string.preview),()->startActivity(new Intent(this,PreviewActivity.class)));
-        label(page,getString(R.string.home_setup),14,0xffc5d3cd);
+        label(page,getString(R.string.home_setup),14,getColor(R.color.theme_text_secondary));
         button(page,getString(R.string.home_open),this::openHome);
         button(page,getString(R.string.home_default),()->{
             android.app.role.RoleManager roles=getSystemService(android.app.role.RoleManager.class);
             if(roles.isRoleHeld(android.app.role.RoleManager.ROLE_HOME))openHome();
             else startActivityForResult(roles.createRequestRoleIntent(android.app.role.RoleManager.ROLE_HOME),9);
         });
-        label(page,getString(R.string.inner_controls_title),21,Color.WHITE);
-        label(page,getString(R.string.inner_controls_body),14,0xffc5d3cd);
-        label(page,getString(R.string.setup_title),21,Color.WHITE);
-        label(page,getString(R.string.setup_body),14,0xffc5d3cd);
+        label(page,getString(R.string.inner_controls_title),21,getColor(R.color.theme_text_primary));
+        label(page,getString(R.string.inner_controls_body),14,getColor(R.color.theme_text_secondary));
+        label(page,getString(R.string.setup_title),21,getColor(R.color.theme_text_primary));
+        label(page,getString(R.string.setup_body),14,getColor(R.color.theme_text_secondary));
         button(page,getString(R.string.open_shizuku),()->{Intent launch=getPackageManager().getLaunchIntentForPackage("moe.shizuku.privileged.api");if(launch!=null)startActivity(launch);else startActivity(new Intent(Intent.ACTION_VIEW,Uri.parse("https://shizuku.rikka.app/guide/setup/")));});
         button(page,getString(R.string.connect_shizuku),()->{
             if(!Shizuku.pingBinder()){new AlertDialog.Builder(this).setMessage(getString(R.string.shizuku_not_running)).setPositiveButton(getString(R.string.official_guide),(d,w)->startActivity(new Intent(Intent.ACTION_VIEW,Uri.parse("https://shizuku.rikka.app/guide/setup/")))).setNegativeButton(getString(R.string.close),null).show();return;}
             if(BridgeConnection.permitted())BridgeConnection.connect(this);else Shizuku.requestPermission(7);
         });
         button(page,getString(R.string.allow_overlay),()->startActivity(new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION,Uri.parse("package:"+getPackageName()))));
-        label(page,getString(R.string.screen_access_title),21,Color.WHITE);
-        label(page,getString(R.string.screen_access_body),14,0xffc5d3cd);
-        label(page,getString(R.string.power_body),14,0xffc5d3cd);
+        label(page,getString(R.string.screen_access_title),21,getColor(R.color.theme_text_primary));
+        label(page,getString(R.string.screen_access_body),14,getColor(R.color.theme_text_secondary));
+        label(page,getString(R.string.power_body),14,getColor(R.color.theme_text_secondary));
         button(page,MotionSettings.enabled(this)?getString(R.string.resume_animation):getString(R.string.enable_animation),this::startMotion);
         button(page,getString(R.string.stop_animation),()->{MotionSettings.setEnabled(this,false);stopService(new Intent(this,MotionService.class));if(!MotionService.running)BridgeConnection.disconnect();});
-        label(page,getString(R.string.recovery_title),21,Color.WHITE);
-        label(page,getString(R.string.recovery_body),14,0xffc5d3cd);
-        label(page,getString(R.string.battery_body),14,0xffc5d3cd);
+        label(page,getString(R.string.recovery_title),21,getColor(R.color.theme_text_primary));
+        label(page,getString(R.string.recovery_body),14,getColor(R.color.theme_text_secondary));
+        label(page,getString(R.string.battery_body),14,getColor(R.color.theme_text_secondary));
         button(page,getString(R.string.battery_settings),()->startActivity(new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,Uri.parse("package:"+getPackageName()))));
-        label(page,getString(R.string.sensors_title),21,Color.WHITE);
-        label(page,getString(R.string.sensors_body),14,0xffc5d3cd);
+        label(page,getString(R.string.sensors_title),21,getColor(R.color.theme_text_primary));
+        label(page,getString(R.string.sensors_body),14,getColor(R.color.theme_text_secondary));
         button(page,getString(R.string.probe_sensors),()->probe(0));
-        diagnostic=label(page,getString(R.string.not_measured),13,0xffd0dbd5);
-        label(page,getString(R.string.device_note),12,0xff90a298);
+        diagnostic=label(page,getString(R.string.not_measured),13,getColor(R.color.theme_text_secondary));
+        label(page,getString(R.string.device_note),12,getColor(R.color.theme_text_muted));
         setContentView(scroll);handler.post(refresh);
     }
     private void startMotion(){
         if(!Settings.canDrawOverlays(this)){Toast.makeText(this,getString(R.string.need_overlay),Toast.LENGTH_LONG).show();return;}
         if(!BridgeConnection.permitted()){Toast.makeText(this,getString(R.string.need_shizuku),Toast.LENGTH_LONG).show();return;}
-        if(!"SM-F966Z".equals(Build.MODEL)){Toast.makeText(this,getString(R.string.unsupported_device),Toast.LENGTH_LONG).show();return;}
         if(checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)!=android.content.pm.PackageManager.PERMISSION_GRANTED)requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS},8);
         BridgeConnection.connect(this);MotionSettings.setEnabled(this,true);startForegroundService(new Intent(this,MotionService.class).setAction(MotionService.running?"restart":"start"));
         Toast.makeText(this,getString(R.string.close_to_prepare),Toast.LENGTH_LONG).show();finish();
@@ -97,6 +106,28 @@ public final class MainActivity extends Activity {
         text.append("\n\n").append(c.getString(R.string.display_result,UiText.raw(b.getString("display")).resolve(c)));
         if(!b.getString("error","").isEmpty())text.append('\n').append(UiText.raw(b.getString("error")).resolve(c));return text.toString();
     }
+    static String formatLiveAngles(Context c,Bundle report){
+        float[] values=report.getFloatArray("angles");long[] times=report.getLongArray("angleTimes"),counts=report.getLongArray("angleCounts");
+        int[] kinds={1,2,3,0};int[] names={R.string.source_wallpaper,R.string.source_samsung,R.string.source_standard,R.string.source_hinge};
+        long now=SystemClock.elapsedRealtime();java.text.NumberFormat number=java.text.NumberFormat.getNumberInstance(c.getResources().getConfiguration().getLocales().get(0));number.setMaximumFractionDigits(1);number.setMinimumFractionDigits(0);
+        StringBuilder text=new StringBuilder();
+        for(int i=0;i<kinds.length;i++){
+            int kind=kinds[i];long count=counts!=null&&kind<counts.length?counts[kind]:0;
+            String value=values!=null&&times!=null&&kind<values.length&&kind<times.length&&Float.isFinite(values[kind])&&count>0
+                    ?c.getString(R.string.live_angle_value,number.format(values[kind]),count,Math.max(0,now-times[kind]))
+                    :c.getString(R.string.live_angle_waiting,count);
+            if(i>0)text.append('\n');text.append(c.getString(R.string.live_angle_row,c.getString(names[i]),value));
+        }
+        return text.toString();
+    }
+    private void refreshLiveAngles(){
+        IShellBridge bridge=BridgeConnection.bridge;
+        if(bridge==null){liveAngles.setText(getString(R.string.live_angles_offline,BridgeConnection.status.resolve(this)));return;}
+        if(liveProbePending)return;liveProbePending=true;
+        BridgeConnection.work.execute(()->{try{
+            Bundle report=bridge.inspect();handler.post(()->{liveProbePending=false;if(!isDestroyed())liveAngles.setText(formatLiveAngles(this,report));});
+        }catch(Exception error){handler.post(()->{liveProbePending=false;if(!isDestroyed())liveAngles.setText(getString(R.string.live_angles_offline,UiText.error(error).resolve(this)));});}});
+    }
     void openHome(){
         if(getDisplay().getDisplayId()==1&&MotionSettings.enabled(this)&&getSystemService(android.app.role.RoleManager.class).isRoleHeld(android.app.role.RoleManager.ROLE_HOME)){
             IShellBridge bridge=BridgeConnection.bridge;
@@ -112,14 +143,16 @@ public final class MainActivity extends Activity {
     private String languageName(){
         LocaleList locales=getSystemService(LocaleManager.class).getApplicationLocales();
         if(locales.isEmpty())return getString(R.string.language_system);
-        return getString("ja".equals(locales.get(0).getLanguage())?R.string.language_japanese:R.string.language_english);
+        String language=locales.get(0).getLanguage();
+        return getString("ja".equals(language)?R.string.language_japanese:"zh".equals(language)?R.string.language_chinese:R.string.language_english);
     }
     private void chooseLanguage(){
         LocaleManager manager=getSystemService(LocaleManager.class);LocaleList locales=manager.getApplicationLocales();
-        int selected=locales.isEmpty()?0:("ja".equals(locales.get(0).getLanguage())?2:1);
-        String[] names={getString(R.string.language_system),getString(R.string.language_english),getString(R.string.language_japanese)};
+        String current=locales.isEmpty()?"":locales.get(0).getLanguage();
+        int selected=locales.isEmpty()?0:("ja".equals(current)?2:"zh".equals(current)?3:1);
+        String[] names={getString(R.string.language_system),getString(R.string.language_english),getString(R.string.language_japanese),getString(R.string.language_chinese)};
         new AlertDialog.Builder(this).setTitle(R.string.language_title).setSingleChoiceItems(names,selected,(dialog,index)->{
-            dialog.dismiss();String tags=new String[]{"","en","ja"}[index];
+            dialog.dismiss();String tags=new String[]{"","en","ja","zh-CN"}[index];
             if(!manager.getApplicationLocales().toLanguageTags().equals(tags))manager.setApplicationLocales(LocaleList.forLanguageTags(tags));
         }).setNegativeButton(R.string.close,null).show();
     }
@@ -127,6 +160,7 @@ public final class MainActivity extends Activity {
         String recovery=MotionSettings.recovery(MainActivity.this);
         String status=MotionService.running?MotionService.status.resolve(MainActivity.this):getString(R.string.state_stopped,BridgeConnection.status.resolve(MainActivity.this));
         state.setText(getString(R.string.state_details,status,getString(MotionSettings.enabled(MainActivity.this)?R.string.on:R.string.off),getString(Settings.canDrawOverlays(MainActivity.this)?R.string.allowed:R.string.not_allowed))+(recovery.isEmpty()?"":"\n"+getString(R.string.last_recovery,recovery)));
+        refreshLiveAngles();
         handler.postDelayed(this,400);
     }};
     @Override protected void onResume(){super.onResume();if(MotionSettings.enabled(this)&&!MotionService.running&&Settings.canDrawOverlays(this))startForegroundService(new Intent(this,MotionService.class).setAction("restore"));}

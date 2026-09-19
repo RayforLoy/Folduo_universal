@@ -86,15 +86,15 @@ final class HomeScene extends FrameLayout {
         List<AppCatalog.App> apps=List.of();
         HomePage(Context c,boolean interactive){
             super(c);this.interactive=interactive;
-            clock=text(c,"",34,0xfff9f5ed);clock.setTypeface(Typeface.create("sans-serif-light",Typeface.NORMAL));
+            clock=text(c,"",34,0xff17201c);clock.setTypeface(Typeface.create("sans-serif-light",Typeface.NORMAL));
             date=text(c,"",38,0xff33465a);date.setTypeface(Typeface.create("sans-serif-light",Typeface.NORMAL));
-            clockCaption=text(c,c.getString(R.string.home_time),11,0xffdee9ef);dateCaption=text(c,"",11,0xff546070);
-            clock.setBackground(round(0x3a14324c,dp(24)));date.setBackground(round(0xd9f8f0e2,dp(24)));
+            clockCaption=text(c,c.getString(R.string.home_time),11,0xff5d6b64);dateCaption=text(c,"",11,0xff546070);
+            clock.setBackground(round(0xd9ffffff,dp(24)));date.setBackground(round(0xd9ffffff,dp(24)));
             addView(clock);addView(date);addView(clockCaption);addView(dateCaption);
             for(int i=0;i<16;i++){
                 final int slot=i;LinearLayout tile=new LinearLayout(c);tile.setOrientation(LinearLayout.VERTICAL);tile.setGravity(Gravity.CENTER);
                 ImageView icon=new ImageView(c);icon.setScaleType(ImageView.ScaleType.FIT_CENTER);
-                TextView label=text(c,"",11,Color.WHITE);label.setMaxLines(1);label.setEllipsize(TextUtils.TruncateAt.END);label.setShadowLayer(dp(2),0,dp(1),0x66503d31);
+                TextView label=text(c,"",11,0xff17201c);label.setMaxLines(1);label.setEllipsize(TextUtils.TruncateAt.END);label.setShadowLayer(dp(2),0,dp(1),0xaaffffff);
                 tile.addView(icon,new LinearLayout.LayoutParams(dp(52),dp(52)));LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(-1,dp(23));lp.topMargin=dp(5);tile.addView(label,lp);
                 icons[i]=icon;labels[i]=label;tiles[i]=tile;addView(tile);
                 if(interactive){
@@ -103,7 +103,7 @@ final class HomeScene extends FrameLayout {
                     tile.setOnLongClickListener(v->{actions.choose(slot);return true;});
                 }
             }
-            drawer=text(c,c.getString(R.string.home_all_apps),12,0xfff8f5ef);drawer.setBackground(round(0x481d334b,dp(24)));addView(drawer);
+            drawer=text(c,c.getString(R.string.home_all_apps),12,0xff17201c);drawer.setBackground(round(0xd9ffffff,dp(24)));addView(drawer);
             if(interactive){drawer.setOnClickListener(v->actions.drawer());drawer.setFocusable(true);}
             else {setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS);setEnabled(false);}
             tick();
@@ -136,12 +136,12 @@ final class HomeScene extends FrameLayout {
     final class TodayPage extends ViewGroup {
         final TextView title,largeClock,date,battery,note,edit;
         TodayPage(Context c){super(c);
-            title=text(c,c.getString(R.string.home_today),18,0xfff8f4ec);title.setGravity(Gravity.START|Gravity.CENTER_VERTICAL);
-            largeClock=text(c,"",62,Color.WHITE);largeClock.setGravity(Gravity.START|Gravity.CENTER_VERTICAL);largeClock.setTypeface(Typeface.create("sans-serif-thin",Typeface.NORMAL));
-            date=text(c,"",14,0xffe0e9ed);date.setGravity(Gravity.START|Gravity.CENTER_VERTICAL);
+            title=text(c,c.getString(R.string.home_today),18,0xff26342e);title.setGravity(Gravity.START|Gravity.CENTER_VERTICAL);
+            largeClock=text(c,"",62,0xff17201c);largeClock.setGravity(Gravity.START|Gravity.CENTER_VERTICAL);largeClock.setTypeface(Typeface.create("sans-serif-thin",Typeface.NORMAL));
+            date=text(c,"",14,0xff47554e);date.setGravity(Gravity.START|Gravity.CENTER_VERTICAL);
             battery=text(c,"",20,0xff344658);battery.setBackground(round(0xddf8f0e2,dp(24)));
             note=text(c,"",17,0xff344658);note.setGravity(Gravity.TOP|Gravity.START);note.setPadding(dp(22),dp(22),dp(22),dp(22));note.setMaxLines(6);note.setEllipsize(TextUtils.TruncateAt.END);note.setBackground(round(0xcff8f0e2,dp(24)));note.setOnClickListener(v->actions.note());
-            edit=text(c,c.getString(R.string.home_edit_note),12,0xffedf2f4);edit.setOnClickListener(v->actions.note());
+            edit=text(c,c.getString(R.string.home_edit_note),12,0xff33433b);edit.setOnClickListener(v->actions.note());
             for(View v:new View[]{title,largeClock,date,battery,note,edit})addView(v);
         }
         void tick(int level,String saved){largeClock.setText(LocalTime.now().format(DateTimeFormatter.ofPattern("H:mm")));date.setText(LocalDate.now().format(DateTimeFormatter.ofPattern(android.text.format.DateFormat.getBestDateTimePattern(getResources().getConfiguration().getLocales().get(0),"MMMddEEE"),getResources().getConfiguration().getLocales().get(0))));battery.setText(getContext().getString(R.string.home_battery,level<0?"—":level+"%"));note.setText(saved.isBlank()?getContext().getString(R.string.home_note_empty):saved);}
@@ -171,10 +171,10 @@ final class HomeScene extends FrameLayout {
             paint.setShader(veil);c.drawRect(0,0,full,h,paint);paint.setShader(null);c.restore();
         }
         void rebuildGradients(float full,float h){cachedFull=full;cachedHeight=h;
-            sky=new LinearGradient(0,0,full,h,new int[]{0xff18344c,0xff6e94a7,0xffd2b99f,0xff9a725a},new float[]{0,.42f,.75f,1},Shader.TileMode.CLAMP);
-            dune=new LinearGradient(0,h*.45f,full,h,new int[]{0xffecd9b9,0xffa58870,0xff413d40},null,Shader.TileMode.CLAMP);
-            foreground=new LinearGradient(0,h*.6f,0,h,0xffa88164,0xff624c43,Shader.TileMode.CLAMP);
-            veil=new LinearGradient(0,0,0,h,new int[]{0x18000000,0x00000000,0x32000000},null,Shader.TileMode.CLAMP);
+            sky=new LinearGradient(0,0,full,h,new int[]{0xfff6faf8,0xffdcefe7,0xfff3e8d9,0xffead8c9},new float[]{0,.42f,.75f,1},Shader.TileMode.CLAMP);
+            dune=new LinearGradient(0,h*.45f,full,h,new int[]{0xfffff4de,0xffdfc6aa,0xffb9afa7},null,Shader.TileMode.CLAMP);
+            foreground=new LinearGradient(0,h*.6f,0,h,0xffe8c8ae,0xffbda99d,Shader.TileMode.CLAMP);
+            veil=new LinearGradient(0,0,0,h,new int[]{0x18ffffff,0x00ffffff,0x24ffffff},null,Shader.TileMode.CLAMP);
         }
     }
 }

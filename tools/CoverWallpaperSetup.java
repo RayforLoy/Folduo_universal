@@ -6,8 +6,9 @@ import android.content.Context;
 import android.os.*;
 import java.io.*;
 import java.lang.reflect.Method;
+import java.util.Locale;
 
-/** Optional, explicit ADB setup for the tested Fold7; changes front HOME only. */
+/** Optional, explicit ADB setup for supported Samsung Fold variants; changes front HOME only. */
 public final class CoverWallpaperSetup {
     private static final int COVER_HOME = 17;
     private static final String RESOURCE_PACKAGE = "com.samsung.android.wallpaper.res";
@@ -25,12 +26,21 @@ public final class CoverWallpaperSetup {
                 && "video_002.mp4".equals(extras.getBundle("serviceSettings").getString("filename"));
     }
 
+    private static boolean supportedModel(String model) {
+        if (model == null) return false;
+        String normalized = model.trim().toUpperCase(Locale.ROOT);
+        return normalized.startsWith("SM-F966") || normalized.startsWith("SM-F971")
+                || normalized.startsWith("SM-F976") || normalized.equals("SC-56F") || normalized.equals("SCG34");
+    }
+
     private static void run(String[] args) throws Exception {
         String action = args.length == 0 ? "status" : args[0];
         if (!action.equals("status") && !action.equals("apply") && !action.equals("restore-stock"))
             throw new IllegalArgumentException("Use status, apply, or restore-stock");
-        if (android.os.Process.myUid() != 2000 || !"SM-F966Z".equals(Build.MODEL))
-            throw new IllegalStateException("This setup is limited to ADB shell on the tested SM-F966Z");
+        if (android.os.Process.myUid() != 2000)
+            throw new IllegalStateException("This setup must run as the ADB shell user");
+        if (!supportedModel(Build.MODEL))
+            throw new IllegalStateException("This setup requires a supported Galaxy Z Fold7 or Fold8");
         Looper.prepareMainLooper();
         Class<?> at = Class.forName("android.app.ActivityThread");
         Object thread = at.getMethod("systemMain").invoke(null);
@@ -41,7 +51,8 @@ public final class CoverWallpaperSetup {
         Object uri = WallpaperManager.class.getMethod("semGetUri", int.class).invoke(manager, COVER_HOME);
         WallpaperInfo info = (WallpaperInfo) WallpaperManager.class.getMethod("getWallpaperInfo", int.class, int.class)
                 .invoke(manager, COVER_HOME, 0);
-        boolean stock = STOCK_URI.equals(String.valueOf(uri)) && (info == null ||
+        String currentUri=String.valueOf(uri);
+        boolean stock = (STOCK_URI.equals(currentUri)||STOCK_URI.substring(0,STOCK_URI.length()-4).equals(currentUri)) && (info == null ||
                 "com.android.systemui.wallpapers.ImageWallpaper".equals(info.getComponent().getClassName()));
         boolean live = info != null && LIVE.equals(info.getComponent())
                 && angleVideo((Bundle) getExtras.invoke(manager, COVER_HOME, 0));

@@ -36,8 +36,8 @@ public final class HomeActivity extends Activity implements HomeScene.Actions {
         settings.setText(R.string.app_name);
         settings.setAllCaps(false);
         settings.setContentDescription(getString(R.string.nav_settings));
-        settings.setTextColor(Color.WHITE);
-        settings.setBackground(HomeScene.round(0x551d334b, dp(24)));
+        settings.setTextColor(0xff17201c);
+        settings.setBackground(HomeScene.round(0xd9ffffff, dp(24)));
         settings.setOnClickListener(v -> settings());
         FrameLayout.LayoutParams button = new FrameLayout.LayoutParams(dp(92), dp(48), Gravity.BOTTOM | Gravity.END);
         button.setMargins(dp(16), 0, dp(16), dp(16));

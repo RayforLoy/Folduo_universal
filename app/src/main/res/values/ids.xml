@@ -1,3 +1,5 @@
 <resources>
     <item name="language_button" type="id"/>
+    <item name="blur_radius" type="id"/>
+    <item name="blur_start" type="id"/>
 </resources>

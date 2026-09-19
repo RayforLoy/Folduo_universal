@@ -9,19 +9,27 @@ import android.widget.*;
 /** Permission-free visual preview uses generated content, never another app's screen. */
 public final class PreviewActivity extends Activity {
     private final java.util.concurrent.ExecutorService worker=java.util.concurrent.Executors.newSingleThreadExecutor();
-    private FrameLayout canvas;private SnapshotView snapshot;private PreviewRig rig;private boolean physical=true;private TextView degrees;private boolean inner=true,closed;private int angle=180,generation;
+    private FrameLayout canvas;private SnapshotView snapshot;private PreviewRig rig;private boolean physical=true;private TextView degrees,radiusValue,startValue;private boolean inner=true,closed;private int angle=180,generation,blurRadius,blurStart;
     @Override public void onCreate(Bundle saved){
-        super.onCreate(saved);if(saved!=null){angle=saved.getInt("angle",180);inner=saved.getBoolean("inner",true);physical=saved.getBoolean("physical",true);}getWindow().setDecorFitsSystemWindows(false);
-        LinearLayout root=new LinearLayout(this);root.setOrientation(LinearLayout.VERTICAL);root.setPadding(16,24,16,32);root.setBackgroundColor(Color.BLACK);
-        degrees=new TextView(this);degrees.setTextColor(Color.WHITE);degrees.setTextSize(18);root.addView(degrees);
+        super.onCreate(saved);blurRadius=MotionSettings.blurRadius(this);blurStart=MotionSettings.blurStart(this);if(saved!=null){angle=saved.getInt("angle",180);inner=saved.getBoolean("inner",true);physical=saved.getBoolean("physical",true);}getWindow().setDecorFitsSystemWindows(false);
+        LinearLayout root=new LinearLayout(this);root.setOrientation(LinearLayout.VERTICAL);root.setPadding(16,24,16,32);root.setBackgroundColor(getColor(R.color.theme_background));
+        degrees=new TextView(this);degrees.setTextColor(getColor(R.color.theme_text_primary));degrees.setTextSize(18);root.addView(degrees);
         canvas=new FrameLayout(this);root.addView(canvas,new LinearLayout.LayoutParams(-1,0,1));
         SeekBar seek=new SeekBar(this);seek.setMax(180);seek.setProgress(angle);seek.setContentDescription(getString(R.string.hinge_angle));root.addView(seek);
         seek.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener(){public void onStartTrackingTouch(SeekBar s){}public void onStopTrackingTouch(SeekBar s){}public void onProgressChanged(SeekBar s,int value,boolean fromUser){angle=value;update();}});
+        radiusValue=compactLabel(root,getString(R.string.blur_radius_value,blurRadius));
+        SeekBar radius=new SeekBar(this);radius.setId(R.id.blur_radius);radius.setMax(60);radius.setProgress(blurRadius);radius.setContentDescription(getString(R.string.blur_radius_description));root.addView(radius);
+        radius.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener(){public void onStartTrackingTouch(SeekBar s){}public void onStopTrackingTouch(SeekBar s){}public void onProgressChanged(SeekBar s,int value,boolean fromUser){blurRadius=value;MotionSettings.blurRadius(PreviewActivity.this,value);updateBlur();}});
+        startValue=compactLabel(root,getString(R.string.blur_start_value,blurStart));
+        SeekBar start=new SeekBar(this);start.setId(R.id.blur_start);start.setMax(90);start.setProgress(blurStart);start.setContentDescription(getString(R.string.blur_start_description));root.addView(start);
+        start.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener(){public void onStartTrackingTouch(SeekBar s){}public void onStopTrackingTouch(SeekBar s){}public void onProgressChanged(SeekBar s,int value,boolean fromUser){blurStart=value;MotionSettings.blurStart(PreviewActivity.this,value);updateBlur();}});
         Button mode=new Button(this);mode.setText(getString(inner?R.string.switch_cover:R.string.switch_inner));mode.setOnClickListener(v->{inner=!inner;mode.setText(inner?getString(R.string.switch_cover):getString(R.string.switch_inner));build();});root.addView(mode);
         Button view=new Button(this);view.setText(getString(physical?R.string.view_render:R.string.view_physical));view.setOnClickListener(v->{physical=!physical;view.setText(physical?getString(R.string.view_render):getString(R.string.view_physical));if(rig!=null)rig.setPhysical(physical);update();});root.addView(view);
         Button back=new Button(this);back.setText(getString(R.string.back_settings));back.setOnClickListener(v->finish());root.addView(back);setContentView(root);getWindow().getInsetsController().hide(WindowInsets.Type.systemBars());canvas.post(this::build);update();
     }
     private void update(){degrees.setText(getString(R.string.preview_degrees,getString(inner?R.string.inner:R.string.cover),angle,getString(physical?R.string.physical_view:R.string.render_view)));if(rig!=null)rig.setAngle(angle);}
+    private TextView compactLabel(LinearLayout parent,String text){TextView label=new TextView(this);label.setText(text);label.setTextColor(getColor(R.color.theme_text_secondary));label.setTextSize(14);parent.addView(label);return label;}
+    private void updateBlur(){radiusValue.setText(getString(R.string.blur_radius_value,blurRadius));startValue.setText(getString(R.string.blur_start_value,blurStart));if(snapshot!=null)snapshot.setBlurSettings(blurRadius,blurStart/100f);}
     private void build(){
         int ticket=++generation;boolean mode=inner;
         float aspect=(mode?.9f:.43f)*.72f/.92f;int h=Math.max(200,Math.min(canvas.getHeight(),Math.round(canvas.getWidth()/aspect)));int w=Math.round(h*aspect);
@@ -32,7 +40,7 @@ public final class PreviewActivity extends Activity {
             if(innerFrame==null)return;
             FrameTexture frame=mode?innerFrame:FrameTexture.prepare(Bitmap.createBitmap(sample,imageW,0,imageW,imageH),getResources().getDisplayMetrics().density,()->closed||ticket!=generation);
             runOnUiThread(()->{
-                if(closed||ticket!=generation||frame==null)return;canvas.removeAllViews();snapshot=new SnapshotView(this,frame,mode,false);
+                if(closed||ticket!=generation||frame==null)return;canvas.removeAllViews();snapshot=new SnapshotView(this,frame,mode,false);snapshot.setBlurSettings(blurRadius,blurStart/100f);
                 if(!mode)snapshot.setRearFrame(innerFrame,false);
                 rig=new PreviewRig(this,snapshot,innerFrame);rig.setPhysical(physical);canvas.addView(rig,new FrameLayout.LayoutParams(w,h,Gravity.CENTER));update();
             });

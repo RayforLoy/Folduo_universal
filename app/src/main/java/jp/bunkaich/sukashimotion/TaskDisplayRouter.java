@@ -6,10 +6,11 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.pm.ResolveInfo;
 import android.os.Bundle;
+import android.os.Build;
 import java.lang.reflect.*;
 import java.util.*;
 
-/** Move app and home tasks without swapping physical/logical display IDs. */
+/** Routes the foreground task while both foldable panels are available. */
 final class TaskDisplayRouter {
     private final Object manager;private final Class<?> api;
     private int lastDestination;
@@ -26,6 +27,7 @@ final class TaskDisplayRouter {
         return (int)window.getClass().getMethod("getActivityType").invoke(window);
     }
     private boolean standard(Object info)throws Exception{return activityType(info)==1;}
+    private boolean ownHome(Object task)throws Exception{ComponentName top=(ComponentName)task.getClass().getField("topActivity").get(task);return top!=null&&BuildConfig.APPLICATION_ID.equals(top.getPackageName());}
     private List<?> roots(int display)throws Exception{return (List<?>)api.getMethod("getAllRootTaskInfosOnDisplay",int.class).invoke(manager,display);}
     private Object home(int display)throws Exception{
         for(Object root:roots(display))if(activityType(root)==2&&root.getClass().getField("topActivity").get(root)!=null)return root;
@@ -67,8 +69,15 @@ final class TaskDisplayRouter {
         // Keep Samsung's one-HOME-root-per-display invariant, but transfer the
         // selected launcher's child task, not the other display's stale home.
         if(destinationRoot!=null&&id!=number(sourceRoot,"taskId")){
-            api.getMethod("moveTaskToRootTask",int.class,int.class,boolean.class).invoke(manager,id,number(destinationRoot,"taskId"),true);
-            resumeHomeTask(id,destination);
+            if(DeviceSupport.separateHomes(Build.MODEL)){
+                // Fold8 rejects reparenting into a HOME root. Let recents select
+                // the correct display-specific activity and fall back safely.
+                try{resumeHomeTask(id,destination);}catch(Exception e){moveHome(destinationRoot,destination,true);}
+                return;
+            }
+            // Current Fold7 firmware also owns this hierarchy; focusing the
+            // destination root is safer than reparenting a launcher child.
+            moveHome(destinationRoot,destination,true);
         }else moveHome(sourceRoot,destination,true);
     }
     private void resumeHomeTask(int id,int display)throws Exception{
@@ -80,7 +89,9 @@ final class TaskDisplayRouter {
     synchronized Bundle move(int source,int destination,boolean idle)throws Exception{
         Bundle result=new Bundle();List<?> tasks=tasks(source);
         if(!tasks.isEmpty()&&activityType(tasks.get(0))==2){
-            moveHomeTask(tasks.get(0),destination);result.putBoolean("ok",true);result.putBoolean("moved",true);result.putBoolean("home",true);return result;
+            Object top=tasks.get(0);
+            if(DeviceSupport.separateHomes(Build.MODEL)&&!ownHome(top))showHome(destination);else moveHomeTask(top,destination);
+            result.putBoolean("ok",true);result.putBoolean("moved",true);result.putBoolean("home",true);return result;
         }
         if(tasks.isEmpty()||!standard(tasks.get(0))){
             if(idle){result.putBoolean("ok",true);return result;}
@@ -233,7 +244,10 @@ final class TaskDisplayRouter {
         // Return the current app first. Do not sweep unrelated HOME roots or change
         // which unrelated application was selected after the fold.
         if(active>=0)api.getMethod("startActivityFromRecents",int.class,Bundle.class).invoke(manager,active,ActivityOptions.makeBasic().setLaunchDisplayId(0).toBundle());
-        else if(top!=null&&activityType(top)==2)moveHomeTask(top,0);
+        // HOME roots are display-policy objects, not ordinary tasks. Each logical
+        // display already owns one. In particular, do not focus display 0's HOME
+        // merely because display 1 is idle on HOME: during a closing rebase the
+        // user's foreground app is already on display 0 and must stay focused.
         for(Object root:roots(1))if(standard(root)&&movedTasks.contains(number(root,"taskId"))&&number(root,"taskId")!=active)
             api.getMethod("moveRootTaskToDisplayOnTopOrBottom",int.class,int.class,boolean.class).invoke(manager,number(root,"taskId"),0,false);
         movedTasks.clear();lastDestination=0;

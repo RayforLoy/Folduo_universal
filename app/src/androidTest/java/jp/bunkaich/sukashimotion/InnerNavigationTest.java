@@ -13,8 +13,8 @@ public class InnerNavigationTest {
  void ui(Runnable task){InstrumentationRegistry.getInstrumentation().runOnMainSync(task);}
  View root()throws Exception{var f=InnerNavigation.class.getDeclaredField("root");f.setAccessible(true);return (View)f.get(nav);}
  View find(View v,String label){if(label.contentEquals(v.getContentDescription()==null?"":v.getContentDescription()))return v;if(v instanceof ViewGroup group)for(int i=0;i<group.getChildCount();i++){View found=find(group.getChildAt(i),label);if(found!=null)return found;}return null;}
- @Before public void start(){Context c=InstrumentationRegistry.getInstrumentation().getTargetContext();activity=InstrumentationRegistry.getInstrumentation().startActivitySync(new Intent(c,MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));ui(()->nav=new InnerNavigation(activity.createWindowContext(WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,null),0,1968,2184,(a,t)->{action=a;task=t;}));}
- @After public void stop(){ui(()->{nav.close();activity.finish();});}
+ @Before public void start(){Context c=InstrumentationRegistry.getInstrumentation().getTargetContext();activity=InstrumentationRegistry.getInstrumentation().startActivitySync(new Intent(c,MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));ui(()->nav=new InnerNavigation(WindowContexts.overlay(activity,activity.getDisplay()),0,1968,2184,(a,t)->{action=a;task=t;}));}
+ @After public void stop(){ui(()->{if(nav!=null)nav.close();if(activity!=null)activity.finish();});}
  @Test public void controlsAreImmediatelyAvailableAndSettingsIsDistinct()throws Exception{
   View row=root();assertNotNull(find(row,activity.getString(R.string.nav_back)));assertNotNull(find(row,activity.getString(R.string.nav_home)));assertNotNull(find(row,activity.getString(R.string.nav_recents)));ui(()->find(row,activity.getString(R.string.nav_settings)).performClick());assertEquals(InnerNavigation.SETTINGS,action);
  }

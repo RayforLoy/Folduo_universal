@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""検証済みFold7の前面ホーム壁紙を設定する。操作を省略すると確認だけ行う。"""
+"""対応するGalaxy Z Fold7/Fold8の前面ホーム壁紙を設定する。省略時は確認のみ。"""
 import argparse
 import shlex
 import shutil

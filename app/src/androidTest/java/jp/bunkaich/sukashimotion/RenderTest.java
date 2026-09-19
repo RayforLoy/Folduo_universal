@@ -17,6 +17,9 @@ public class RenderTest {
   return render(inner,angle,source,linked,false);
  }
  private Bitmap render(boolean inner,float angle,Bitmap source,Bitmap linked,boolean physical)throws Exception{
+  return render(inner,angle,source,linked,physical,MotionSettings.DEFAULT_BLUR_RADIUS,MotionSettings.DEFAULT_BLUR_START);
+ }
+ private Bitmap render(boolean inner,float angle,Bitmap source,Bitmap linked,boolean physical,int radius,int start)throws Exception{
   Context context=InstrumentationRegistry.getInstrumentation().getTargetContext();
   android.content.res.Configuration config=new android.content.res.Configuration(context.getResources().getConfiguration());config.densityDpi=160;
   Context renderContext=context.createConfigurationContext(config);
@@ -25,7 +28,7 @@ public class RenderTest {
   android.media.ImageReader reader=android.media.ImageReader.newInstance(640,720,PixelFormat.RGBA_8888,2,android.hardware.HardwareBuffer.USAGE_GPU_SAMPLED_IMAGE|android.hardware.HardwareBuffer.USAGE_GPU_COLOR_OUTPUT);
   HardwareRenderer renderer=new HardwareRenderer();renderer.setSurface(reader.getSurface());
   InstrumentationRegistry.getInstrumentation().runOnMainSync(()->{
-   SnapshotView view=new SnapshotView(renderContext,frame,inner,false);view.layout(0,0,640,720);if(rear!=null)view.setRearFrame(rear,false);view.setAngle(angle);
+   SnapshotView view=new SnapshotView(renderContext,frame,inner,false);view.setBlurSettings(radius,start/100f);view.layout(0,0,640,720);if(rear!=null)view.setRearFrame(rear,false);view.setAngle(angle);
    RenderNode node=new RenderNode("fold-test");node.setPosition(0,0,640,720);Canvas c=node.beginRecording();
    if(physical){
     c.drawColor(Color.BLACK);c.save();c.clipRect(320,0,640,720);view.draw(c);c.restore();
@@ -143,13 +146,15 @@ public class RenderTest {
  @Test public void exchangingLayoutsDoesNotRetainSharpGhostLines()throws Exception{
   Bitmap cover=Bitmap.createBitmap(640,720,Bitmap.Config.ARGB_8888),inside=Bitmap.createBitmap(640,720,Bitmap.Config.ARGB_8888);
   for(int y=0;y<720;y++)for(int x=0;x<640;x++){
-   cover.setPixel(x,y,(x/8%2==0)?Color.WHITE:Color.BLACK);
-   inside.setPixel(x,y,(y/8%2==0)?Color.BLACK:Color.WHITE);
+   cover.setPixel(x,y,(x/64%2==0)?Color.WHITE:Color.BLACK);
+   inside.setPixel(x,y,(y/64%2==0)?Color.BLACK:Color.WHITE);
   }
   for(float a:new float[]{26,35,50,65}){
    Bitmap folded=render(false,a,cover,inside);int low=255,high=0,rearLow=255,rearHigh=0;
-   for(int x=100;x<540;x++){int value=Color.red(folded.getPixel(x,360));low=Math.min(low,value);high=Math.max(high,value);}
-   for(int y=260;y<460;y++){int value=Color.red(folded.getPixel(320,y));rearLow=Math.min(rearLow,value);rearHigh=Math.max(rearHigh,value);}
+   // Sample well inside each stripe. Sampling exactly on a stripe edge makes a
+   // variable blur radius look like a second layout even when only one exists.
+   for(int x=100;x<540;x++){int value=Color.red(folded.getPixel(x,350));low=Math.min(low,value);high=Math.max(high,value);}
+   for(int y=260;y<460;y++){int value=Color.red(folded.getPixel(350,y));rearLow=Math.min(rearLow,value);rearHigh=Math.max(rearHigh,value);}
    // Early in a gradual fold the ORIGINAL may still be readable. Distinct horizontal
    // and vertical details detect the regression we actually need to prevent: two
    // simultaneously readable layouts, not the presence of any remaining detail.
@@ -163,6 +168,21 @@ public class RenderTest {
   assertTrue(cover.prepared&&inner.prepared);
   assertEquals(Color.BLUE,cover.sharp.getPixel(160,360));assertEquals(Color.BLUE,inner.sharp.getPixel(100,360));assertEquals(Color.BLUE,inner.sharp.getPixel(540,360));
   for(Bitmap level:inner.levels){int pixel=level.getPixel(level.getWidth()/4,level.getHeight()/2);assertTrue("Cropped right image remains blue after blur",Color.blue(pixel)>240&&Color.red(pixel)<15);}
+ }
+ @Test public void temporaryDestinationPreservesAspectRatioWithCenterCrop(){
+  Bitmap wide=Bitmap.createBitmap(200,200,Bitmap.Config.ARGB_8888);
+  for(int y=0;y<200;y++)for(int x=0;x<200;x++)wide.setPixel(x,y,Color.rgb(x,0,0));
+  FrameTexture inner=FrameTexture.prepare(wide,1,()->false),cover=inner.transfer(true,80,200);
+  // The 100x200 right pane is center-cropped to 80x200, rather than squeezed.
+  assertEquals(110,Color.red(cover.sharp.getPixel(0,100)),2);
+  assertEquals(189,Color.red(cover.sharp.getPixel(79,100)),2);
+
+  Bitmap tall=Bitmap.createBitmap(80,200,Bitmap.Config.ARGB_8888);
+  for(int y=0;y<200;y++)for(int x=0;x<80;x++)tall.setPixel(x,y,Color.rgb(0,y,0));
+  FrameTexture outer=FrameTexture.prepare(tall,1,()->false),opened=outer.transfer(false,100,100);
+  // Each 50x100 inner pane samples a centered 80x160 crop.
+  assertEquals(20,Color.green(opened.sharp.getPixel(25,0)),2);
+  assertEquals(179,Color.green(opened.sharp.getPixel(75,99)),2);
  }
  @Test public void saveCalibratedRenderingSamples()throws Exception{
   Context context=InstrumentationRegistry.getInstrumentation().getTargetContext();
@@ -195,6 +215,13 @@ public class RenderTest {
   }
   assertTrue("Edge remains present",total>240);
   return Math.sqrt(Math.max(0,second/total-Math.pow(first/total,2)));
+ }
+ @Test public void coverLeftStaysSharpBeforeTheConfiguredBlurStart()throws Exception{
+  Bitmap edge=horizontalEdge();
+  Bitmap result=render(false,70,edge,null,false,28,35);
+  double left=edgeSigma(result,100),right=edgeSigma(result,550);
+  assertTrue("Cover detail before the start position stays sharp, sigma="+left,left<1);
+  assertTrue("Cover frost grows after the start position, sigma="+right,right>8);
  }
  @Test public void slowOpeningHasNoBlurCliffAroundImageExchange()throws Exception{
   Bitmap edge=horizontalEdge();double previous=-1;StringBuilder samples=new StringBuilder("angle,sigma_pixels\n");

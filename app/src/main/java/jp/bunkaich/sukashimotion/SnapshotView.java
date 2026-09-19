@@ -9,9 +9,11 @@ final class SnapshotView extends View {
     final RuntimeShader shader=new RuntimeShader(FoldShader.CODE);final Paint paint=new Paint(Paint.FILTER_BITMAP_FLAG);
     FrameTexture frame;final boolean inner,leftOnly;
     int logicalWidth; private float angle;private FrameTexture rearFrame;private long rearSince;private boolean sharpHold;
+    private float blurRadiusDp,blurStart;
     private final Paint holdPaint=new Paint(Paint.FILTER_BITMAP_FLAG);
     SnapshotView(Context context,FrameTexture frame,boolean inner,boolean leftOnly){
         super(context);this.frame=frame;this.inner=inner;this.leftOnly=leftOnly;angle=inner?180:0;paint.setShader(shader);
+        blurRadiusDp=MotionSettings.blurRadius(context);blurStart=MotionSettings.blurStart(context)/100f;
         setContentDescription(context.getString(R.string.snapshot_description));setImportantForAccessibility(IMPORTANT_FOR_ACCESSIBILITY_NO);
         // Do not operate an unseen live app through its temporary frozen image.
         setOnTouchListener((v,event)->true);
@@ -32,8 +34,10 @@ final class SnapshotView extends View {
         for(int i=0;i<BlurCache.LEVELS.length;i++)shader.setInputShader("rear"+(int)BlurCache.LEVELS[i],bitmap(linked.levels[i],1,1,crop?-linked.levels[i].getWidth()*.5f:0));
         shader.setFloatUniform("rearCacheScale",linked.levels[0].getWidth()*(crop?.5f:1f)/w,linked.levels[0].getHeight()/(float)h);
         shader.setFloatUniform("size",w,h);shader.setFloatUniform("inner",inner?1:0);
-        shader.setFloatUniform("pixelsPerDp",getResources().getDisplayMetrics().density);shader.setFloatUniform("radiusDp",28);
+        shader.setFloatUniform("pixelsPerDp",getResources().getDisplayMetrics().density);
+        shader.setFloatUniform("radiusDp",blurRadiusDp);shader.setFloatUniform("blurStart",blurStart);
     }
+    void setBlurSettings(float radiusDp,float start){blurRadiusDp=Math.max(0,Math.min(60,radiusDp));blurStart=Math.max(0,Math.min(.9f,start));bindTextures();invalidate();}
     void setFrame(FrameTexture next){frame=next;bindTextures();invalidate();}
     void setSharpHold(boolean value){sharpHold=value;invalidate();}
     void afterFrame(Runnable committed){

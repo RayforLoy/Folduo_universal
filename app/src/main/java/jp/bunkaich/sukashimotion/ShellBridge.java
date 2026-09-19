@@ -21,6 +21,9 @@ public final class ShellBridge extends IShellBridge.Stub {
     private Context context; private SensorManager sensorManager; private int appUid=-1;
     private volatile long heartbeat=SystemClock.elapsedRealtime();
     private volatile IAngleSink sink; private volatile java.lang.Process logReader; private volatile int angleGeneration;
+    private final Object angleReadings=new Object();
+    private final float[] latestAngles={Float.NaN,Float.NaN,Float.NaN,Float.NaN};
+    private final long[] latestAngleTimes=new long[4],latestAngleCounts=new long[4];
     private String error=""; private DualDisplayControl displayControl;private TaskDisplayRouter taskRouter;private StatusBarControl bars;
     public ShellBridge() { this(null); }
     public ShellBridge(Context ignored) {
@@ -53,6 +56,7 @@ public final class ShellBridge extends IShellBridge.Stub {
             b.putString("error",error);b.putBoolean("running",sink!=null);
             b.putBoolean("statusIconsHidden",bars!=null&&bars.hidden());
             b.putBoolean("samsungPermission",context!=null&&context.checkSelfPermission("com.samsung.permission.SSENSOR")==android.content.pm.PackageManager.PERMISSION_GRANTED);
+            synchronized(angleReadings){b.putFloatArray("angles",latestAngles.clone());b.putLongArray("angleTimes",latestAngleTimes.clone());b.putLongArray("angleCounts",latestAngleCounts.clone());}
             synchronized(sensors){ArrayList<Bundle> copy=new ArrayList<>();for(Bundle row:sensors)copy.add(new Bundle(row));b.putParcelableArrayList("sensors",copy);}
             try { b.putString("display",control().describe()); } catch(Exception e){b.putString("display",message(e));}
             return b;
@@ -63,6 +67,7 @@ public final class ShellBridge extends IShellBridge.Stub {
         authorize();long token=Binder.clearCallingIdentity();
         try {
             stopInternal();heartbeat=SystemClock.elapsedRealtime();sink=callback;int generation=angleGeneration;
+            synchronized(angleReadings){Arrays.fill(latestAngles,Float.NaN);Arrays.fill(latestAngleTimes,0);Arrays.fill(latestAngleCounts,0);}
             callback.asBinder().linkToDeath(()->{if(sink==callback){stopInternal();releaseInternal();}},0);
             if(sensorManager!=null){
                 Handler handler=new Handler(sensorThread.getLooper());
@@ -75,9 +80,11 @@ public final class ShellBridge extends IShellBridge.Stub {
                         public void onAccuracyChanged(Sensor s,int accuracy){}
                         public void onSensorChanged(SensorEvent event){
                             synchronized(sensors){row.putLong("events",row.getLong("events")+1);row.putLong("lastAt",SystemClock.elapsedRealtime());row.putFloatArray("values",event.values.clone());}
-                            if(type==36||type==65686){
-                                // A 90-degree public sensor is a posture source, never label it fine.
-                                int source=type==65686?2:sensor.getResolution()<10?3:0;
+                            if(type==Sensor.TYPE_HINGE_ANGLE||type==65686){
+                                // Use the standard hinge sensor directly whenever it
+                                // supplies real angles. Coarse 0/90/180 posture sensors
+                                // remain diagnostics and cannot invent intermediate motion.
+                                int source=type==65686?2:DeviceSupport.fineHingeSensor(type,sensor.getResolution(),sensor.getMaximumRange())?3:0;
                                 emit(event.values[0],SystemClock.elapsedRealtime(),source,generation);
                             }
                         }
@@ -92,13 +99,14 @@ public final class ShellBridge extends IShellBridge.Stub {
     }
     private void emit(float angle,long measuredAt,int source,int generation){
         IAngleSink target=sink;
-        if(generation!=angleGeneration||target==null||!Float.isFinite(angle)||angle<0||angle>180)return;
+        if(generation!=angleGeneration||target==null||source<0||source>=latestAngles.length||!Float.isFinite(angle)||angle<0||angle>180)return;
+        synchronized(angleReadings){latestAngles[source]=angle;latestAngleTimes[source]=measuredAt;latestAngleCounts[source]++;}
         try{target.angle(angle,measuredAt,source);}catch(RemoteException e){stopInternal();releaseInternal();}
     }
     private void startLogReader(int generation){
         new Thread(()->{
             long started=System.currentTimeMillis();
-            Pattern pattern=Pattern.compile("^\\s*([0-9.]+)\\s+\\d+\\s+\\d+\\s+I\\s+SprWallpaper\\|FoldInteractive:\\s+onCommand: action\\[jp\\.bunkaich\\.sukashimotion\\.READ_ANGLE\\], mCurrentAngle\\[([0-9.]+)\\], isVisible\\[true\\]");
+            Pattern pattern=AngleLog.pattern(BuildConfig.APPLICATION_ID+".READ_ANGLE");
             java.lang.Process process=null;
             try{
                 process=new ProcessBuilder("logcat","-v","epoch","-T","1","-s","SprWallpaper|FoldInteractive:I","*:S").redirectErrorStream(true).start();
@@ -122,7 +130,7 @@ public final class ShellBridge extends IShellBridge.Stub {
         if(sensorManager!=null)for(SensorEventListener listener:listeners)sensorManager.unregisterListener(listener);
         listeners.clear();
     }
-    private synchronized DualDisplayControl control()throws Exception{if(displayControl==null)displayControl=new DualDisplayControl();return displayControl;}
+    private synchronized DualDisplayControl control()throws Exception{if(displayControl==null)displayControl=new DualDisplayControl(context);return displayControl;}
     @Override public synchronized Bundle hold(boolean innerPrimary,int previousOwner){
         authorize();long token=Binder.clearCallingIdentity();Bundle result=new Bundle();
         try{if(sink==null)throw new IllegalStateException("@folduo/err_angle_stopped");control().hold(innerPrimary,previousOwner);result.putInt("ownerPid",android.os.Process.myPid());result.putBoolean("ok",true);}catch(Exception e){result.putString("error",message(e));}
@@ -137,6 +145,19 @@ public final class ShellBridge extends IShellBridge.Stub {
             return taskRouter.move(sourceDisplayId,targetDisplayId,idle);
         }catch(Exception e){result.putString("error",message(e));return result;}
         finally{Binder.restoreCallingIdentity(token);}
+    }
+    @Override public synchronized Bundle rebase(boolean innerPrimary,int previousOwner){
+        authorize();long token=Binder.clearCallingIdentity();Bundle result=new Bundle();
+        try{
+            if(sink==null||displayControl==null||!displayControl.isOwned())throw new IllegalStateException("@folduo/err_control_stopped");
+            // Put the foreground application back on logical display 0 while the
+            // snapshots are still opaque, then make that logical display the
+            // physical panel at the completed fold endpoint.
+            if(taskRouter!=null)taskRouter.restore();
+            control().hold(innerPrimary,previousOwner);
+            result.putInt("ownerPid",android.os.Process.myPid());result.putBoolean("ok",true);
+        }catch(Exception e){result.putString("error",message(e));}
+        finally{Binder.restoreCallingIdentity(token);}return result;
     }
     @Override public void release(){authorize();long token=Binder.clearCallingIdentity();try{releaseInternal();}finally{Binder.restoreCallingIdentity(token);}}
     private synchronized void releaseInternal(){
